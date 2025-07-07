@@ -43,25 +43,18 @@
 
     <div id="app" class="container mx-auto p-4 max-w-screen-2xl">
 
-        <!-- 標題 -->
         <header class="text-center my-6">
             <h1 class="text-4xl font-bold text-sky-300">Shadowverse: Worlds Beyond 網頁紀牌器</h1>
             <p class="text-gray-400 mt-2">點擊卡牌庫來建立你的牌組，完成後即可開始追蹤！</p>
         </header>
 
-        <!-- 介面切換：組牌介面 vs 追蹤介面 -->
         <main id="deck-builder-view">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- 左側：卡牌資料庫 -->
                 <div class="bg-gray-800 rounded-lg p-4 flex flex-col h-[85vh]">
                     <h2 class="text-2xl font-bold mb-4 text-center">卡牌資料庫</h2>
-                    <!-- 篩選器 -->
                     <div class="filters space-y-4 mb-4">
-                        <!-- 職業篩選 -->
                         <div id="class-filter-container" class="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                            <!-- 職業按鈕將由 JS 動態生成 -->
-                        </div>
-                        <!-- 卡包與搜尋 -->
+                            </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <select id="pack-filter" class="bg-gray-700 border border-gray-600 rounded-md p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
                                 <option value="all">所有卡包</option>
@@ -72,20 +65,14 @@
                         </div>
                          <button id="clear-filters" class="w-full bg-gray-600 hover:bg-gray-500 rounded-md p-2 transition-colors">清除所有篩選</button>
                     </div>
-                    <!-- 卡牌列表 -->
                     <div id="card-database-view" class="flex-grow overflow-y-auto no-scrollbar p-2 bg-gray-900/50 rounded-md space-y-2">
-                        <!-- 卡牌將由 JS 動態生成 -->
-                    </div>
+                        </div>
                 </div>
 
-                <!-- 右側：你的牌組 -->
                 <div class="bg-gray-800 rounded-lg p-4 flex flex-col h-[85vh]">
                     <h2 class="text-2xl font-bold mb-4 text-center">你的牌組 (<span id="deck-count">0</span>/40)</h2>
-                    <!-- 牌組列表 -->
                     <div id="current-deck-view" class="flex-grow overflow-y-auto no-scrollbar p-2 bg-gray-900/50 rounded-md space-y-2">
-                        <!-- 已選卡牌將由 JS 動態生成 -->
-                    </div>
-                    <!-- 牌組管理 -->
+                        </div>
                     <div class="mt-4 border-t border-gray-700 pt-4 space-y-3">
                         <h3 class="text-lg font-semibold text-center">牌組管理</h3>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -98,7 +85,6 @@
                         </div>
                          <button id="delete-deck-btn" class="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors">刪除選定牌組</button>
                     </div>
-                    <!-- 操作按鈕 -->
                     <div class="mt-4 flex gap-4">
                         <button id="start-tracking-btn" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">完成組牌，開始追蹤</button>
                         <button id="clear-deck-btn" class="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md transition-colors">清空目前牌組</button>
@@ -110,12 +96,10 @@
         <main id="tracker-view" class="hidden">
             <div class="bg-gray-800 rounded-lg p-6 max-w-6xl mx-auto">
                 <h2 class="text-3xl font-bold mb-2 text-center">牌局追蹤 (<span id="tracker-deck-count">40</span> 張剩餘)</h2>
-                <!-- 特殊機制按鈕區 -->
                 <div id="special-actions-view" class="mb-4 text-center"></div>
                 
                 <div id="tracker-cards-view" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    <!-- 追蹤卡牌將由 JS 動態生成 -->
-                </div>
+                    </div>
                 <div class="mt-6 flex gap-4">
                     <button id="reset-btn" class="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-md transition-colors">重置牌局 (下一場)</button>
                     <button id="back-to-builder-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition-colors">返回編輯牌組</button>
@@ -504,18 +488,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const rarityClass = `rarity-${card.rarity.toLowerCase()}`;
 
             const cardEl = document.createElement('div');
-            cardEl.className = `bg-gray-700 p-3 rounded-lg flex flex-col justify-between ${count === 0 ? 'opacity-40' : ''}`;
+            cardEl.className = `bg-gray-700 rounded-lg flex items-stretch overflow-hidden ${count === 0 ? 'opacity-40' : ''}`;
             cardEl.innerHTML = `
-                <div>
-                    <div class="flex justify-between items-start">
-                        <span class="font-bold text-lg">${card.name}</span>
-                        <span class="font-bold text-2xl text-sky-300">${count}</span>
+                <div class="rarity-block w-3 ${rarityClass}"></div>
+                <div class="flex-grow p-3 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start">
+                            <span class="font-bold text-lg">${card.name}</span>
+                            <span class="font-bold text-2xl text-sky-300">${count}</span>
+                        </div>
+                        <p class="text-sm text-gray-400"><span class="font-semibold">${card.cost}費</span> | 下抽機率: ${probability}%</p>
                     </div>
-                    <p class="text-sm text-gray-400">下抽機率: ${probability}%</p>
-                </div>
-                <div class="flex items-center justify-center gap-4 mt-3">
-                    <button data-id="${cardId}" class="return-btn w-12 h-8 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-md transition-colors text-lg">+</button>
-                    <button data-id="${cardId}" class="draw-btn w-12 h-8 bg-red-600 hover:bg-red-500 text-white font-bold rounded-md transition-colors text-lg">-</button>
+                    <div class="flex items-center justify-center gap-4 mt-2">
+                        <button data-id="${cardId}" class="return-btn w-12 h-8 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-md transition-colors text-lg">+</button>
+                        <button data-id="${cardId}" class="draw-btn w-12 h-8 bg-red-600 hover:bg-red-500 text-white font-bold rounded-md transition-colors text-lg">-</button>
+                    </div>
                 </div>
             `;
             if (count === 0) {
