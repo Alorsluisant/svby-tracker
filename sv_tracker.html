@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadowverse: Worlds Beyond 網頁紀牌器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 基本樣式與深色主題 */
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+        /* 隱藏滾動條但保留滾動功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 職業按鈕選中狀態 */
+        .class-btn[data-selected="true"] {
+            background-color: #0ea5e9; /* sky-500 */
+            color: white;
+            box-shadow: 0 0 10px #0ea5e9;
+        }
+        
+        /* 卡牌稀有度顏色 */
+        .rarity-bronze { background-color: #cd7f32; }
+        .rarity-silver { background-color: #c0c0c0; }
+        .rarity-gold { background-color: #ffd700; }
+        .rarity-legendary { background-color: #b19cd9; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div id="app" class="container mx-auto p-4 max-w-screen-2xl">
+
+        <!-- 標題 -->
+        <header class="text-center my-6">
+            <h1 class="text-4xl font-bold text-sky-300">Shadowverse: Worlds Beyond 網頁紀牌器</h1>
+            <p class="text-gray-400 mt-2">點擊卡牌庫來建立你的牌組，完成後即可開始追蹤！</p>
+        </header>
+
+        <!-- 介面切換：組牌介面 vs 追蹤介面 -->
+        <main id="deck-builder-view">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- 左側：卡牌資料庫 -->
+                <div class="bg-gray-800 rounded-lg p-4 flex flex-col h-[85vh]">
+                    <h2 class="text-2xl font-bold mb-4 text-center">卡牌資料庫</h2>
+                    <!-- 篩選器 -->
+                    <div class="filters space-y-4 mb-4">
+                        <!-- 職業篩選 -->
+                        <div id="class-filter-container" class="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                            <!-- 職業按鈕將由 JS 動態生成 -->
+                        </div>
+                        <!-- 卡包與搜尋 -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <select id="pack-filter" class="bg-gray-700 border border-gray-600 rounded-md p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                                <option value="all">所有卡包</option>
+                                <option value="傳說揭幕">傳說揭幕</option>
+                                <option value="基本卡">基本卡</option>
+                            </select>
+                            <input type="text" id="search-bar" placeholder="搜尋卡牌名稱..." class="bg-gray-700 border border-gray-600 rounded-md p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                        </div>
+                         <button id="clear-filters" class="w-full bg-gray-600 hover:bg-gray-500 rounded-md p-2 transition-colors">清除所有篩選</button>
+                    </div>
+                    <!-- 卡牌列表 -->
+                    <div id="card-database-view" class="flex-grow overflow-y-auto no-scrollbar p-2 bg-gray-900/50 rounded-md space-y-2">
+                        <!-- 卡牌將由 JS 動態生成 -->
+                    </div>
+                </div>
+
+                <!-- 右側：你的牌組 -->
+                <div class="bg-gray-800 rounded-lg p-4 flex flex-col h-[85vh]">
+                    <h2 class="text-2xl font-bold mb-4 text-center">你的牌組 (<span id="deck-count">0</span>/40)</h2>
+                    <!-- 牌組列表 -->
+                    <div id="current-deck-view" class="flex-grow overflow-y-auto no-scrollbar p-2 bg-gray-900/50 rounded-md space-y-2">
+                        <!-- 已選卡牌將由 JS 動態生成 -->
+                    </div>
+                    <!-- 牌組管理 -->
+                    <div class="mt-4 border-t border-gray-700 pt-4 space-y-3">
+                        <h3 class="text-lg font-semibold text-center">牌組管理</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input type="text" id="deck-name-input" placeholder="輸入牌組名稱..." class="bg-gray-700 border border-gray-600 rounded-md p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            <button id="save-deck-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-md transition-colors">儲存目前牌組</button>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                             <select id="saved-decks-dropdown" class="bg-gray-700 border border-gray-600 rounded-md p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none"></select>
+                             <button id="load-deck-btn" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-md transition-colors">讀取選定牌組</button>
+                        </div>
+                         <button id="delete-deck-btn" class="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors">刪除選定牌組</button>
+                    </div>
+                    <!-- 操作按鈕 -->
+                    <div class="mt-4 flex gap-4">
+                        <button id="start-tracking-btn" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed">完成組牌，開始追蹤</button>
+                        <button id="clear-deck-btn" class="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md transition-colors">清空目前牌組</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <main id="tracker-view" class="hidden">
+            <div class="bg-gray-800 rounded-lg p-6 max-w-6xl mx-auto">
+                <h2 class="text-3xl font-bold mb-2 text-center">牌局追蹤 (<span id="tracker-deck-count">40</span> 張剩餘)</h2>
+                <!-- 特殊機制按鈕區 -->
+                <div id="special-actions-view" class="mb-4 text-center"></div>
+                
+                <div id="tracker-cards-view" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <!-- 追蹤卡牌將由 JS 動態生成 -->
+                </div>
+                <div class="mt-6 flex gap-4">
+                    <button id="reset-btn" class="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-md transition-colors">重置牌局 (下一場)</button>
+                    <button id="back-to-builder-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition-colors">返回編輯牌組</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+<script>
+// --- Shadowverse: Worlds Beyond 卡牌資料庫 ---
+const CARD_DATABASE = [
+    // --- 傳說揭幕 ---
+    // 妖精
+    { id: 1001, name: "舞動的妖精", class: "妖精", cost: 2, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 1002, name: "戀觸妖精", class: "妖精", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 1003, name: "深奧的妖精守護聖獸", class: "妖精", cost: 8, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 1004, name: "勤勞的蚱蜢", class: "妖精", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 1005, name: "言傳的草人長老", class: "妖精", cost: 4, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 1006, name: "召集妖精", class: "妖精", cost: 1, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 1007, name: "寒霜冰晶‧艾琳", class: "妖精", cost: 7, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 1008, name: "純真的水之妖精", class: "妖精", cost: 1, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 1009, name: "幼年寶石獸", class: "妖精", cost: 2, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 1010, name: "磷光輝岩", class: "妖精", cost: 2, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 1011, name: "薰交的敬慕", class: "妖精", cost: 3, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 1012, name: "純潔冰晶‧莉莉", class: "妖精", cost: 2, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 1013, name: "薰交天宮‧巴克伍德", class: "妖精", cost: 5, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 1014, name: "煌擊戰士‧貝魯", class: "妖精", cost: 8, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 1015, name: "殺戮破魔蟲", class: "妖精", cost: 3, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 1016, name: "聖樹權杖", class: "妖精", cost: 3, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 1017, name: "自然界的妖精公主‧阿麗雅", class: "妖精", cost: 6, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 1018, name: "豔麗的玫瑰皇后", class: "妖精", cost: 9, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 1019, name: "新生劍師‧阿瑪茲", class: "妖精", cost: 3, rarity: "Legendary", pack: "傳說揭幕" },
+    // 皇家
+    { id: 2001, name: "愛之騎士‧尹安", class: "皇家", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 2002, name: "和平商販‧艾爾涅絲塔", class: "皇家", cost: 6, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 2003, name: "救援的魯米那斯治療師‧琍菈菈", class: "皇家", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 2004, name: "軍犬", class: "皇家", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 2005, name: "異端武士", class: "皇家", cost: 2, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 2006, name: "劍士的斬擊", class: "皇家", cost: 4, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 2007, name: "統率的魯米那斯騎士", class: "皇家", cost: 1, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 2008, name: "卓越的魯米那斯法師", class: "皇家", cost: 5, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 2009, name: "勇猛的魯米那斯槍士", class: "皇家", cost: 2, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 2010, name: "忍者鼯鼠", class: "皇家", cost: 2, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 2011, name: "王斷的威光", class: "皇家", cost: 3, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 2012, name: "雷維翁戰斧‧傑諾", class: "皇家", cost: 7, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 2013, name: "寂靜狙擊手‧瓦路茲", class: "皇家", cost: 3, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 2014, name: "王斷天宮‧絲塔琪茉", class: "皇家", cost: 4, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 2015, name: "煌刃勇者‧阿瑪莉雅", class: "皇家", cost: 8, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 2016, name: "觸手咬擊", class: "皇家", cost: 7, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 2017, name: "雷維翁迅雷‧阿爾貝爾", class: "皇家", cost: 5, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 2018, name: "白銀騎士團長‧艾蜜莉亞", class: "皇家", cost: 6, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 2019, name: "備戰不息‧景光", class: "皇家", cost: 3, rarity: "Legendary", pack: "傳說揭幕" },
+    // 巫師
+    { id: 3001, name: "符文劍驅使者", class: "巫師", cost: 5, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 3002, name: "見習占星術師", class: "巫師", cost: 2, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 3003, name: "智梟召喚師", class: "巫師", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 3004, name: "追夢的企鵝魔法師", class: "巫師", cost: 4, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 3005, name: "彩虹奇蹟", class: "巫師", cost: 2, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 3006, name: "暴風噴射", class: "巫師", cost: 1, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 3007, name: "嬌美教師‧米蘭", class: "巫師", cost: 2, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 3008, name: "驚奇女巫‧愛蜜兒", class: "巫師", cost: 5, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 3009, name: "馬納歷亞學子‧威廉", class: "巫師", cost: 6, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 3010, name: "理光的證明", class: "巫師", cost: 3, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 3011, name: "冰雪覺醒", class: "巫師", cost: 8, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 3012, name: "拂曉鍊金術師‧諾諾", class: "巫師", cost: 5, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 3013, name: "魔法藥劑師‧蓓妮露佩", class: "巫師", cost: 2, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 3014, name: "理光天宮‧愛蒂倫瓦思", class: "巫師", cost: 4, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 3015, name: "要完成課題！", class: "巫師", cost: 3, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 3016, name: "喚鬼之術", class: "巫師", cost: 7, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 3017, name: "五行巔峰‧久苑", class: "巫師", cost: 7, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 3018, name: "馬納歷亞的親愛摯友‧安＆古蕾婭", class: "巫師", cost: 5, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 3019, name: "飛越次元", class: "巫師", cost: 18, rarity: "Legendary", pack: "傳說揭幕" },
+    // 龍族
+    { id: 4001, name: "雲海龍騎兵", class: "龍族", cost: 8, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 4002, name: "海溝大劍龍", class: "龍族", cost: 5, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 4003, name: "新手獵龍人", class: "龍族", cost: 5, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 4004, name: "育龍少女", class: "龍族", cost: 2, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 4005, name: "白鱗聖使", class: "龍族", cost: 4, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 4006, name: "災禍的吐息", class: "龍族", cost: 6, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 4007, name: "煌牙義勇‧基德", class: "龍族", cost: 6, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 4008, name: "追風者‧葉花", class: "龍族", cost: 3, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 4009, name: "詠風者‧傑魯", class: "龍族", cost: 3, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 4010, name: "美豔龍人‧瑪利翁", class: "龍族", cost: 4, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 4011, name: "榮弦的奏樂", class: "龍族", cost: 3, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 4012, name: "再臨之創世龍", class: "龍族", cost: 10, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 4013, name: "榮弦天宮‧琉芙", class: "龍族", cost: 4, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 4014, name: "駭浪龍騎士‧薩哈爾", class: "龍族", cost: 6, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 4015, name: "薄暮闇龍", class: "龍族", cost: 9, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 4016, name: "乙姬的寶扇", class: "龍族", cost: 1, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 4017, name: "灼熱的弒滅者‧珀德奈特", class: "龍族", cost: 7, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 4018, name: "霸道龍翼‧法露特", class: "龍族", cost: 6, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 4019, name: "龍人演義‧臥龍", class: "龍族", cost: 8, rarity: "Legendary", pack: "傳說揭幕" },
+    // 夜魔
+    { id: 5001, name: "午夜的吸血鬼‧艾菈露", class: "夜魔", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 5002, name: "無名惡魔", class: "夜魔", cost: 2, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 5003, name: "役骨少女", class: "夜魔", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 5004, name: "雜技亡魂", class: "夜魔", cost: 6, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 5005, name: "禁約惡魔", class: "夜魔", cost: 5, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 5006, name: "死神揮鐮", class: "夜魔", cost: 1, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 5007, name: "幹練死神‧蜜諾", class: "夜魔", cost: 2, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 5008, name: "夢魔‧維莉", class: "夜魔", cost: 2, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 5009, name: "奇異探索者‧尤娜", class: "夜魔", cost: 4, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 5010, name: "穿刺公‧弗拉德", class: "夜魔", cost: 8, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 5011, name: "瞑地的靈園", class: "夜魔", cost: 3, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 5012, name: "藍薔薇千金‧賽蕾絲", class: "夜魔", cost: 4, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 5013, name: "盛燃的魔劍‧歐特魯斯", class: "夜魔", cost: 2, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 5014, name: "瞑地天宮‧穆坎", class: "夜魔", cost: 4, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 5015, name: "法外的賞金獵人‧巴爾特", class: "夜魔", cost: 3, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 5016, name: "蛇神的嗔怒", class: "夜魔", cost: 2, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 5017, name: "奔放的獄炎‧凱爾貝洛斯", class: "夜魔", cost: 8, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 5018, name: "烈毒公主‧梅杜莎", class: "夜魔", cost: 7, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 5019, name: "無盡獵人‧阿拉加維", class: "夜魔", cost: 5, rarity: "Legendary", pack: "傳說揭幕" },
+    // 主教
+    { id: 7001, name: "聖心之光稜牧師", class: "主教", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 7002, name: "聖盾神官", class: "主教", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 7003, name: "給予指引的光輝天使", class: "主教", cost: 5, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 7004, name: "潛伏的曼紐", class: "主教", cost: 2, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 7005, name: "平靜的教會", class: "主教", cost: 1, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 7006, name: "銳羽四射", class: "主教", cost: 6, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 7007, name: "煌槍月兔妖‧薩莉沙", class: "主教", cost: 6, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 7008, name: "煌羽翼族‧莉諾", class: "主教", cost: 4, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 7009, name: "大地守護神‧宓唯", class: "主教", cost: 8, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 7010, name: "禁密的聖地", class: "主教", cost: 2, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 7011, name: "聖潔注射", class: "主教", cost: 6, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 7012, name: "終焉之白骨聖堂教主", class: "主教", cost: 4, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 7013, name: "禁密天宮‧羅納威洛", class: "主教", cost: 2, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 7014, name: "崇高的熾天使‧勒碧絲", class: "主教", cost: 4, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 7015, name: "野獸公主的誓約", class: "主教", cost: 3, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 7016, name: "邪教之器", class: "主教", cost: 2, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 7017, name: "裁決的弒滅者‧羅德歐", class: "主教", cost: 7, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 7018, name: "純白聖女‧貞德", class: "主教", cost: 8, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 7019, name: "水之守護神‧莎蕾樺", class: "主教", cost: 5, rarity: "Legendary", pack: "傳說揭幕" },
+    // 復仇者
+    { id: 8001, name: "熱忱的發明家‧伊俐思", class: "復仇者", cost: 1, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 8002, name: "鋼鐵傭兵‧迪爾克", class: "復仇者", cost: 5, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 8003, name: "永彈槍手", class: "復仇者", cost: 2, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 8004, name: "機偶暗殺者", class: "復仇者", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 8005, name: "人偶替身術", class: "復仇者", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 8006, name: "創造物的蓄能", class: "復仇者", cost: 1, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 8007, name: "奮戰領袖‧露琪娜", class: "復仇者", cost: 4, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 8008, name: "執愛的操偶師", class: "復仇者", cost: 2, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 8009, name: "殺意的絲線‧諾亞", class: "復仇者", cost: 6, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 8010, name: "生命的奔流", class: "復仇者", cost: 2, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 8011, name: "改境的重啟", class: "復仇者", cost: 5, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 8012, name: "決意之志‧米莉亞姆", class: "復仇者", cost: 3, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 8013, name: "箱庭斷罪者‧希爾薇婭", class: "復仇者", cost: 6, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 8014, name: "癲狂創造者‧歷亞姆", class: "復仇者", cost: 10, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 8015, name: "改境天宮‧亞露愛得", class: "復仇者", cost: 5, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 8016, name: "遺產的砲擊", class: "復仇者", cost: 5, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 8017, name: "嶄新的少女‧歐絲", class: "復仇者", cost: 3, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 8018, name: "邁步之心‧奧契絲", class: "復仇者", cost: 8, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 8019, name: "凌光星馳‧洛菈米亞", class: "復仇者", cost: 8, rarity: "Legendary", pack: "傳說揭幕" },
+    // 中立
+    { id: 9001, name: "貪婪的智天使‧露比", class: "中立", cost: 2, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 9002, name: "觀察的偵探", class: "中立", cost: 3, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 9003, name: "哥布林的襲擊", class: "中立", cost: 5, rarity: "Bronze", pack: "傳說揭幕" },
+    { id: 9004, name: "飛馳的光明‧阿波羅", class: "中立", cost: 3, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 9005, name: "熾天使的福音", class: "中立", cost: 3, rarity: "Silver", pack: "傳說揭幕" },
+    { id: 9006, name: "樂朗天宮‧斐爾特亞", class: "中立", cost: 2, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 9007, name: "神之雷霆", class: "中立", cost: 4, rarity: "Gold", pack: "傳說揭幕" },
+    { id: 9008, name: "毅勇的墮天使‧奧莉薇", class: "中立", cost: 7, rarity: "Legendary", pack: "傳說揭幕" },
+    { id: 9009, name: "終末之罪‧撒旦", class: "中立", cost: 10, rarity: "Legendary", pack: "傳說揭幕" },
+
+    // --- 基本卡 ---
+    // 中立
+    { id: 9010, name: "不屈的劍鬥士", class: "中立", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 9011, name: "偵探的放大鏡", class: "中立", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 9012, name: "叮噹天使‧莉亞", class: "中立", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 9013, name: "威撼的歌利亞", class: "中立", cost: 4, rarity: "Bronze", pack: "基本卡" },
+    { id: 9014, name: "冒險家工會", class: "中立", cost: 3, rarity: "Silver", pack: "基本卡" },
+    { id: 9015, name: "商隊猛瑪象", class: "中立", cost: 7, rarity: "Silver", pack: "基本卡" },
+    { id: 9016, name: "煌響使者‧亨莉雅坦", class: "中立", cost: 3, rarity: "Silver", pack: "基本卡" },
+    // 妖精
+    { id: 1020, name: "冒險精靈‧小梅", class: "妖精", cost: 1, rarity: "Silver", pack: "基本卡" },
+    { id: 1021, name: "妖精馴服者", class: "妖精", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 1022, name: "絢綻之庭", class: "妖精", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 1023, name: "音速弓手‧塞爾文", class: "妖精", cost: 7, rarity: "Silver", pack: "基本卡" },
+    { id: 1024, name: "群蟲惡兆", class: "妖精", cost: 1, rarity: "Silver", pack: "基本卡" },
+    { id: 1025, name: "獨行的獸人", class: "妖精", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 1026, name: "溫厚的樹精", class: "妖精", cost: 4, rarity: "Bronze", pack: "基本卡" },
+    // 皇家
+    { id: 2020, name: "瞬息的迅捷劍士", class: "皇家", cost: 1, rarity: "Bronze", pack: "基本卡" },
+    { id: 2021, name: "女僕的準則", class: "皇家", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 2022, name: "戰鬥商販", class: "皇家", cost: 4, rarity: "Bronze", pack: "基本卡" },
+    { id: 2023, name: "人馬騎士", class: "皇家", cost: 8, rarity: "Bronze", pack: "基本卡" },
+    { id: 2024, name: "王室車夫", class: "皇家", cost: 2, rarity: "Silver", pack: "基本卡" },
+    { id: 2025, name: "魔煌詭智者‧拉提斯", class: "皇家", cost: 3, rarity: "Silver", pack: "基本卡" },
+    { id: 2026, name: "傳家皇冠", class: "皇家", cost: 4, rarity: "Silver", pack: "基本卡" },
+    // 巫師
+    { id: 3020, name: "智慧耀光", class: "巫師", cost: 1, rarity: "Bronze", pack: "基本卡" },
+    { id: 3021, name: "召喚真理", class: "巫師", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 3022, name: "雙貌魔女‧蕾米拉米", class: "巫師", cost: 4, rarity: "Silver", pack: "基本卡" },
+    { id: 3023, name: "狂燄毀滅者", class: "巫師", cost: 10, rarity: "Silver", pack: "基本卡" },
+    { id: 3024, name: "魔女的煉金斧", class: "巫師", cost: 1, rarity: "Bronze", pack: "基本卡" },
+    { id: 3025, name: "閃光之魔法劍士", class: "巫師", cost: 3, rarity: "Bronze", pack: "基本卡" },
+    { id: 3026, name: "爆裂魔法", class: "巫師", cost: 4, rarity: "Silver", pack: "基本卡" },
+    // 龍族
+    { id: 4020, name: "龍人的潰擊", class: "龍族", cost: 1, rarity: "Bronze", pack: "基本卡" },
+    { id: 4021, name: "龍之啟迪", class: "龍族", cost: 3, rarity: "Silver", pack: "基本卡" },
+    { id: 4022, name: "咆嘯馭龍使", class: "龍族", cost: 5, rarity: "Silver", pack: "基本卡" },
+    { id: 4023, name: "兇鯊戰士", class: "龍族", cost: 8, rarity: "Bronze", pack: "基本卡" },
+    { id: 4024, name: "炙烈的火焰蜥蜴", class: "龍族", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 4025, name: "猛擊的龍族勇士", class: "龍族", cost: 4, rarity: "Silver", pack: "基本卡" },
+    { id: 4026, name: "戰斧弒龍者", class: "龍族", cost: 6, rarity: "Bronze", pack: "基本卡" },
+    // 夜魔
+    { id: 5020, name: "妖惑魅魔裡‧莉莉姆", class: "夜魔", cost: 1, rarity: "Silver", pack: "基本卡" },
+    { id: 5021, name: "渾沌怨咒", class: "夜魔", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 5022, name: "暗夜鬼人", class: "夜魔", cost: 3, rarity: "Bronze", pack: "基本卡" },
+    { id: 5023, name: "魔狼首領", class: "夜魔", cost: 6, rarity: "Bronze", pack: "基本卡" },
+    { id: 5024, name: "兇惡的小木乃伊", class: "夜魔", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 5025, name: "補食靈魂", class: "夜魔", cost: 2, rarity: "Silver", pack: "基本卡" },
+    { id: 5026, name: "多情的死靈法師", class: "夜魔", cost: 4, rarity: "Silver", pack: "基本卡" },
+    // 主教
+    { id: 7020, name: "擁翼的石像", class: "主教", cost: 1, rarity: "Silver", pack: "基本卡" },
+    { id: 7021, name: "飛翼戰士", class: "主教", cost: 4, rarity: "Bronze", pack: "基本卡" },
+    { id: 7022, name: "鳥像的投影", class: "主教", cost: 4, rarity: "Bronze", pack: "基本卡" },
+    { id: 7023, name: "聖輝獅鷲獸", class: "主教", cost: 8, rarity: "Silver", pack: "基本卡" },
+    { id: 7024, name: "純淨白狐", class: "主教", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 7025, name: "鐵拳神父", class: "主教", cost: 4, rarity: "Silver", pack: "基本卡" },
+    { id: 7026, name: "治癒的修女", class: "主教", cost: 6, rarity: "Bronze", pack: "基本卡" },
+    // 復仇者
+    { id: 8020, name: "魁儡長槍手", class: "復仇者", cost: 2, rarity: "Bronze", pack: "基本卡" },
+    { id: 8021, name: "人偶劇院", class: "復仇者", cost: 2, rarity: "Silver", pack: "基本卡" },
+    { id: 8022, name: "異次元的槍擊", class: "復仇者", cost: 4, rarity: "Bronze", pack: "基本卡" },
+    { id: 8023, name: "獸性獸人", class: "復仇者", cost: 6, rarity: "Bronze", pack: "基本卡" },
+    { id: 8024, name: "電鞭揮擊者", class: "復仇者", cost: 2, rarity: "Silver", pack: "基本卡" },
+    { id: 8025, name: "砲擊貓獸人", class: "復仇者", cost: 3, rarity: "Bronze", pack: "基本卡" },
+    { id: 8026, name: "魔鋼騎兵", class: "復仇者", cost: 5, rarity: "Silver", pack: "基本卡" },
+
+    // --- 衍生物 ---
+    { id: 9101, name: "撒旦的從魔", class: "中立", cost: 1, rarity: "Legendary", pack: "衍生物" },
+    { id: 9102, name: "邊獄的惡鬼", class: "中立", cost: 5, rarity: "Legendary", pack: "衍生物" },
+    { id: 9103, name: "沉默的魔將", class: "中立", cost: 6, rarity: "Legendary", pack: "衍生物" },
+    { id: 9104, name: "亞斯她錄的宣判", class: "中立", cost: 10, rarity: "Legendary", pack: "衍生物" }
+];
+
+document.addEventListener('DOMContentLoaded', () => {
+    // --- 狀態變數 ---
+    let currentDeck = {}; // { cardId: count }
+    let trackingDeck = {};
+    let originalDeckForReset = {};
+    let selectedClasses = [];
+
+    // --- DOM 元素 ---
+    const deckBuilderView = document.getElementById('deck-builder-view');
+    const trackerView = document.getElementById('tracker-view');
+    const cardDbView = document.getElementById('card-database-view');
+    const currentDeckView = document.getElementById('current-deck-view');
+    const deckCountSpan = document.getElementById('deck-count');
+    const startTrackingBtn = document.getElementById('start-tracking-btn');
+    const clearDeckBtn = document.getElementById('clear-deck-btn');
+    const packFilter = document.getElementById('pack-filter');
+    const classFilterContainer = document.getElementById('class-filter-container');
+    const searchBar = document.getElementById('search-bar');
+    const clearFiltersBtn = document.getElementById('clear-filters');
+    const trackerCardsView = document.getElementById('tracker-cards-view');
+    const trackerDeckCountSpan = document.getElementById('tracker-deck-count');
+    const resetBtn = document.getElementById('reset-btn');
+    const backToBuilderBtn = document.getElementById('back-to-builder-btn');
+    const specialActionsView = document.getElementById('special-actions-view');
+    // 牌組管理
+    const deckNameInput = document.getElementById('deck-name-input');
+    const saveDeckBtn = document.getElementById('save-deck-btn');
+    const savedDecksDropdown = document.getElementById('saved-decks-dropdown');
+    const loadDeckBtn = document.getElementById('load-deck-btn');
+    const deleteDeckBtn = document.getElementById('delete-deck-btn');
+
+    // --- 渲染與初始化函式 ---
+    const initializeClassFilters = () => {
+        const classes = ["妖精", "皇家", "巫師", "龍族", "夜魔", "主教", "復仇者", "中立"];
+        classes.forEach(className => {
+            const btn = document.createElement('button');
+            btn.className = 'class-btn bg-gray-700 hover:bg-gray-600 rounded-md p-2 transition-colors';
+            btn.textContent = className;
+            btn.dataset.class = className;
+            btn.dataset.selected = "false";
+            btn.addEventListener('click', () => {
+                const isSelected = btn.dataset.selected === "true";
+                btn.dataset.selected = isSelected ? "false" : "true";
+                renderCardDatabase();
+            });
+            classFilterContainer.appendChild(btn);
+        });
+    };
+    
+    const renderCardDatabase = () => {
+        cardDbView.innerHTML = '';
+        const packValue = packFilter.value;
+        
+        // 更新選中的職業列表
+        selectedClasses = [];
+        classFilterContainer.querySelectorAll('.class-btn').forEach(btn => {
+            if (btn.dataset.selected === "true") {
+                selectedClasses.push(btn.dataset.class);
+            }
+        });
+
+        const searchValue = searchBar.value.toLowerCase();
+
+        const filteredCards = CARD_DATABASE.filter(card => {
+            // 【修正】不顯示衍生物卡牌
+            if (card.pack === '衍生物') return false;
+
+            const matchesPack = packValue === 'all' || card.pack === packValue;
+            // 【修正】處理複選職業
+            const matchesClass = selectedClasses.length === 0 || selectedClasses.includes(card.class);
+            const matchesSearch = card.name.toLowerCase().includes(searchValue);
+            return matchesPack && matchesClass && matchesSearch;
+        }).sort((a,b) => a.cost - b.cost);
+
+        filteredCards.forEach(card => {
+            const rarityClass = `rarity-${card.rarity.toLowerCase()}`;
+            const cardEl = document.createElement('div');
+            // 【修正】卡牌樣式，加大稀有度色塊
+            cardEl.className = `card bg-gray-700 rounded-md flex items-stretch cursor-pointer overflow-hidden`;
+            cardEl.innerHTML = `
+                <div class="rarity-block w-3 ${rarityClass}"></div>
+                <div class="flex-grow flex justify-between items-center p-2">
+                    <div class="flex items-center overflow-hidden mr-2">
+                        <span class="font-bold text-sky-300 w-8 text-center flex-shrink-0">${card.cost}費</span>
+                        <span class="ml-4 font-semibold truncate">${card.name}</span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="text-xs text-gray-400">${card.pack}</span>
+                        <span class="text-xs text-gray-400">${card.class}</span>
+                    </div>
+                </div>
+            `;
+            cardEl.addEventListener('click', () => addCardToDeck(card.id));
+            cardDbView.appendChild(cardEl);
+        });
+    };
+
+    const renderCurrentDeck = () => {
+        currentDeckView.innerHTML = '';
+        let totalCount = 0;
+        const sortedDeckIds = Object.keys(currentDeck).sort((a, b) => {
+            const cardA = CARD_DATABASE.find(c => c.id == a);
+            const cardB = CARD_DATABASE.find(c => c.id == b);
+            return cardA.cost - cardB.cost;
+        });
+
+        sortedDeckIds.forEach(cardId => {
+            const count = currentDeck[cardId];
+            if (count > 0) {
+                const card = CARD_DATABASE.find(c => c.id == cardId);
+                totalCount += count;
+                const rarityClass = `rarity-${card.rarity.toLowerCase()}`;
+
+                const cardEl = document.createElement('div');
+                cardEl.className = `card bg-gray-700 rounded-md flex items-stretch cursor-pointer overflow-hidden`;
+                cardEl.innerHTML = `
+                    <div class="rarity-block w-3 ${rarityClass}"></div>
+                    <div class="flex-grow flex justify-between items-center p-2">
+                        <div class="flex items-center overflow-hidden mr-2">
+                            <span class="font-bold text-sky-300 w-8 text-center flex-shrink-0">${card.cost}費</span>
+                            <span class="ml-4 font-semibold truncate">${card.name}</span>
+                        </div>
+                        <span class="font-bold text-lg">${count}</span>
+                    </div>
+                `;
+                cardEl.addEventListener('click', () => removeCardFromDeck(card.id));
+                currentDeckView.appendChild(cardEl);
+            }
+        });
+
+        deckCountSpan.textContent = totalCount;
+        startTrackingBtn.disabled = totalCount !== 40;
+    };
+
+    const renderTracker = () => {
+        trackerCardsView.innerHTML = '';
+        let totalRemaining = Object.values(trackingDeck).reduce((a, b) => a + b, 0);
+        trackerDeckCountSpan.textContent = `${totalRemaining} 張剩餘`;
+        
+        const sortedDeckIds = Object.keys(trackingDeck).sort((a, b) => {
+            const cardA = CARD_DATABASE.find(c => c.id == a);
+            const cardB = CARD_DATABASE.find(c => c.id == b);
+            return cardA.cost - cardB.cost;
+        });
+
+        sortedDeckIds.forEach(cardId => {
+            const count = trackingDeck[cardId];
+            const card = CARD_DATABASE.find(c => c.id == cardId);
+            const probability = totalRemaining > 0 && count > 0 ? (count / totalRemaining * 100).toFixed(2) : 0;
+            const rarityClass = `rarity-${card.rarity.toLowerCase()}`;
+
+            const cardEl = document.createElement('div');
+            cardEl.className = `bg-gray-700 p-3 rounded-lg flex flex-col justify-between ${count === 0 ? 'opacity-40' : ''}`;
+            cardEl.innerHTML = `
+                <div>
+                    <div class="flex justify-between items-start">
+                        <span class="font-bold text-lg">${card.name}</span>
+                        <span class="font-bold text-2xl text-sky-300">${count}</span>
+                    </div>
+                    <p class="text-sm text-gray-400">下抽機率: ${probability}%</p>
+                </div>
+                <div class="flex items-center justify-center gap-4 mt-3">
+                    <button data-id="${cardId}" class="return-btn w-12 h-8 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-md transition-colors text-lg">+</button>
+                    <button data-id="${cardId}" class="draw-btn w-12 h-8 bg-red-600 hover:bg-red-500 text-white font-bold rounded-md transition-colors text-lg">-</button>
+                </div>
+            `;
+            if (count === 0) {
+                cardEl.querySelector('.draw-btn').disabled = true;
+            }
+            trackerCardsView.appendChild(cardEl);
+        });
+        
+        document.querySelectorAll('.draw-btn').forEach(btn => btn.addEventListener('click', (e) => modifyCardCount(e.currentTarget.dataset.id, -1)));
+        document.querySelectorAll('.return-btn').forEach(btn => btn.addEventListener('click', (e) => modifyCardCount(e.currentTarget.dataset.id, 1)));
+    };
+    
+    const checkSpecialActions = () => {
+        specialActionsView.innerHTML = '';
+        // 檢查是否包含撒旦 (ID 9009)
+        if (originalDeckForReset['9009']) {
+            const satanBtn = document.createElement('button');
+            satanBtn.id = 'satan-btn';
+            satanBtn.className = 'bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-md transition-colors';
+            satanBtn.textContent = '切換為啟示錄牌組';
+            satanBtn.addEventListener('click', switchToApocalypseDeck);
+            specialActionsView.appendChild(satanBtn);
+        }
+    };
+
+    // --- 事件處理函式 ---
+    const addCardToDeck = (cardId) => {
+        const totalCount = Object.values(currentDeck).reduce((a, b) => a + b, 0);
+        if (totalCount >= 40) {
+            alert('牌組已滿40張！');
+            return;
+        }
+        const currentCardCount = currentDeck[cardId] || 0;
+        if (currentCardCount >= 3) {
+            alert('同名卡最多只能放3張！');
+            return;
+        }
+        currentDeck[cardId] = currentCardCount + 1;
+        renderCurrentDeck();
+    };
+
+    const removeCardFromDeck = (cardId) => {
+        if (currentDeck[cardId] && currentDeck[cardId] > 0) {
+            currentDeck[cardId]--;
+            if (currentDeck[cardId] === 0) {
+                delete currentDeck[cardId];
+            }
+            renderCurrentDeck();
+        }
+    };
+    
+    const modifyCardCount = (cardId, amount) => {
+        if (trackingDeck[cardId] !== undefined) {
+            // 【修正】增加卡牌時，不能超過牌組原有的數量
+            if (amount > 0) {
+                const originalCount = originalDeckForReset[cardId] || 0;
+                if (trackingDeck[cardId] >= originalCount) {
+                    return; // 已達上限，不做任何事
+                }
+            }
+            
+            trackingDeck[cardId] += amount;
+
+            if (trackingDeck[cardId] < 0) {
+                trackingDeck[cardId] = 0;
+            }
+            renderTracker();
+        }
+    };
+
+    const switchToApocalypseDeck = () => {
+        trackingDeck = {
+            '9101': 3, // 撒旦的從魔
+            '9102': 3, // 邊獄的惡鬼
+            '9103': 3, // 沉默的魔將
+            '9104': 1, // 亞斯她錄的宣判
+        };
+        renderTracker();
+        const satanBtn = document.getElementById('satan-btn');
+        if (satanBtn) {
+            satanBtn.disabled = true;
+            satanBtn.textContent = '已切換';
+        }
+    };
+
+    // --- 牌組管理 (LocalStorage) ---
+    const loadDecksDropdown = () => {
+        const savedDecks = JSON.parse(localStorage.getItem('savedDecks')) || {};
+        savedDecksDropdown.innerHTML = '<option value="">-- 選擇已存牌組 --</option>';
+        for (const deckName in savedDecks) {
+            const option = document.createElement('option');
+            option.value = deckName;
+            option.textContent = deckName;
+            savedDecksDropdown.appendChild(option);
+        }
+    };
+
+    const saveDeck = () => {
+        const deckName = deckNameInput.value.trim();
+        if (!deckName) {
+            alert('請先為您的牌組命名！');
+            return;
+        }
+        if (Object.keys(currentDeck).length === 0) {
+            alert('目前牌組是空的，無法儲存！');
+            return;
+        }
+
+        const savedDecks = JSON.parse(localStorage.getItem('savedDecks')) || {};
+        savedDecks[deckName] = currentDeck;
+        localStorage.setItem('savedDecks', JSON.stringify(savedDecks));
+        alert(`牌組 "${deckName}" 已儲存！`);
+        loadDecksDropdown();
+    };
+
+    const loadDeck = () => {
+        const deckName = savedDecksDropdown.value;
+        if (!deckName) {
+            alert('請先從下拉選單中選擇一個牌組！');
+            return;
+        }
+        const savedDecks = JSON.parse(localStorage.getItem('savedDecks')) || {};
+        currentDeck = savedDecks[deckName];
+        deckNameInput.value = deckName;
+        renderCurrentDeck();
+        alert(`已讀取牌組 "${deckName}"！`);
+    };
+
+    const deleteDeck = () => {
+        const deckName = savedDecksDropdown.value;
+        if (!deckName) {
+            alert('請先從下拉選單中選擇要刪除的牌組！');
+            return;
+        }
+        
+        const savedDecks = JSON.parse(localStorage.getItem('savedDecks')) || {};
+        delete savedDecks[deckName];
+        localStorage.setItem('savedDecks', JSON.stringify(savedDecks));
+        alert(`牌組 "${deckName}" 已刪除！`);
+        deckNameInput.value = '';
+        loadDecksDropdown();
+    };
+
+
+    // --- 事件監聽 ---
+    packFilter.addEventListener('change', renderCardDatabase);
+    searchBar.addEventListener('input', renderCardDatabase);
+    clearFiltersBtn.addEventListener('click', () => {
+        packFilter.value = 'all';
+        searchBar.value = '';
+        classFilterContainer.querySelectorAll('.class-btn').forEach(btn => btn.dataset.selected = "false");
+        renderCardDatabase();
+    });
+
+    clearDeckBtn.addEventListener('click', () => {
+        currentDeck = {};
+        deckNameInput.value = '';
+        renderCurrentDeck();
+    });
+
+    startTrackingBtn.addEventListener('click', () => {
+        deckBuilderView.classList.add('hidden');
+        trackerView.classList.remove('hidden');
+        originalDeckForReset = JSON.parse(JSON.stringify(currentDeck));
+        trackingDeck = JSON.parse(JSON.stringify(currentDeck));
+        renderTracker();
+        checkSpecialActions();
+    });
+
+    backToBuilderBtn.addEventListener('click', () => {
+        deckBuilderView.classList.remove('hidden');
+        trackerView.classList.add('hidden');
+    });
+    
+    resetBtn.addEventListener('click', () => {
+        trackingDeck = JSON.parse(JSON.stringify(originalDeckForReset));
+        renderTracker();
+        checkSpecialActions(); // 重置後也要重新檢查特殊按鈕
+    });
+
+    saveDeckBtn.addEventListener('click', saveDeck);
+    loadDeckBtn.addEventListener('click', loadDeck);
+    deleteDeckBtn.addEventListener('click', deleteDeck);
+
+    // --- 初始啟動 ---
+    initializeClassFilters();
+    renderCardDatabase();
+    renderCurrentDeck();
+    loadDecksDropdown();
+});
+</script>
+
+</body>
+</html>
